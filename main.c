@@ -61,7 +61,7 @@ exit
  * NOTE: Suggested size for the items buffer is a large prime value.
  *       It will improve the distribution of items within the table.
  *       It is also advised for the size to be quite larger then the
- *       maximum expected amount of data to avoid hash colisions.
+ *       maximum expected amount of data to avoid hash collisions.
  *
  * NOTE: The key cannot be empty string as that is used to represent
  *       empty slot in the table.
@@ -93,11 +93,11 @@ long RobinHT_Hash(char* item) {
     return hash;
 }
 
-int RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
+void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
     va_list args;
     char *item,*dst,*swap,itembuf[itemsiz],swapbuf[itemsiz];
     long itemhash,dsthash;
-    size_t i,itemi,dsti;
+    size_t i,scanned,itemi,dsti;
     assert(buf);
     assert(buflen>0);
     assert(itemsiz>0);
@@ -109,14 +109,14 @@ int RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
     swap=swapbuf,item=itembuf;
     itemhash=RobinHT_Hash(item);
     itemi=itemhash%buflen;
-    for(i=itemi;item;i++) {
+    for(scanned=0,i=itemi;;i++) {
         dst=buf+(i*itemsiz);
         if(*dst) { /* slot taken */
             dsthash=RobinHT_Hash(dst);
             if (itemhash==dsthash&&strcmp(item,dst)==0) {
                 /* the same key so just update the item value */
                 memcpy(dst,item,itemsiz);
-                return 1;
+                return;
             } else {
                 /* different key */
                 dsti=dsthash%buflen;
@@ -134,11 +134,11 @@ int RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
             }
         } else { /* slot empty */
             memcpy(dst,item,itemsiz);
-            return 1;
+            return;
         }
+        assert(++scanned<buflen && "no empty slots in the given buf");
     }
     assert(0 && "should never reach here");
-    return -1;
 }
 
 int main(void) {
