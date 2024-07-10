@@ -109,7 +109,7 @@ void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
     swap=swapbuf,item=itembuf;
     itemhash=RobinHT_Hash(item);
     itemi=itemhash%buflen;
-    for(scanned=0,i=itemi;;i++) {
+    for(scanned=0,i=itemi;;i=(i+1)%buflen) {
         dst=buf+(i*itemsiz);
         if(*dst==0) { /* slot is empty */
             memcpy(dst,item,itemsiz);
