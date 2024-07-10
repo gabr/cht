@@ -63,8 +63,7 @@ exit
  *       It is also advised for the size to be quite larger then the
  *       maximum expected amount of data to avoid hash collisions.
  *
- * NOTE: The key cannot be empty string as that is used to represent
- *       empty slot in the table.
+ * NOTE: The key cannot be NULL as that represent empty slot in the table.
  *
  * BONUS: Notice that you can use the RobinHT as a Hash Set:
  *
@@ -93,6 +92,7 @@ long RobinHT_Hash(char* item){
     return hash;
 }
 
+#define __RobinHT_Dist(x) (i<x?(buflen+i-x):(i-x))
 void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...){
     va_list args;
     char *item,*dst,*swap,itembuf[itemsiz],swapbuf[itemsiz];
@@ -115,7 +115,7 @@ void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...){
     for(scanned=0,i=itemi;;i=(i+1)%buflen){
         dst=buf+(i*itemsiz);
         /* slot is empty or has the same key */
-        if(*dst==0||(*item==*dst&&!strcmp(item+1,dst+1))){
+        if(!dst||(*item==*dst&&!strcmp(item+1,dst+1))){
             /* Compare first character before even calling the strcmp().
                This yelds performance improvements in most cases. */
             memcpy(dst,item,itemsiz);
@@ -126,7 +126,7 @@ void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...){
         dsti=dsthash%buflen;
         /* if our item is further from its supposed place then it
          * stays here and we move out the "richer" item */
-        if(i-dsti<i-itemi){
+        if(__RobinHT_Dist(dsti)<__RobinHT_Dist(itemi)){
             memcpy(swap,dst,itemsiz);
             memcpy(dst,item,itemsiz);
             dst=item;
@@ -155,14 +155,14 @@ size_t __RobinHT_Find(char* buf, size_t buflen, size_t itemsiz, char* key){
     itemi=itemhash%buflen;
     for(scanned=0,i=itemi;;i=(i+1)%buflen){
         dst=buf+(i*itemsiz);
-        if(*dst&&*dst==*key&&!strcmp(dst+1,key+1)) return i;
+        if(!dst&&*dst==*key&&!strcmp(dst+1,key+1)) return i;
         if(*dst) {
             dsthash=RobinHT_Hash(dst);
             dsti=dsthash%buflen;
             /* we should have found our item by now as the current dst one
                has lover distance to its original index then our item which
                will never happen */
-            if(i-dsti<i-itemi) return -1;
+            if(__RobinHT_Dist(dsti)<__RobinHT_Dist(itemi)) return -1;
         }
         if(++scanned>=buflen) return -1; /* not found */
     }
@@ -180,9 +180,17 @@ int RobinHT_Get(char* buf, size_t buflen, size_t itemsiz, char* key, char* itemb
 
 /* returns 1 if item was found and removed, 0 otherwise */
 int RobinHT_Rem(char* buf, size_t buflen, size_t itemsiz, char* key){
-    size_t i = __RobinHT_Find(buf,buflen,itemsiz,key);
+    size_t i,dsti;
+    long dsthash;
+    i=__RobinHT_Find(buf,buflen,itemsiz,key);
     if(i==(size_t)-1) return 0;
-    buf[i*itemsiz]=0;
+    buf[i*itemsiz]=0; /* clear found item and move next ones back */
+    for(i=(i+1)%buflen;buf[i*itemsiz];i=(i+1)%buflen){
+        dsthash=RobinHT_Hash(buf+(i*itemsiz));
+        dsti=dsthash%buflen;
+        if(i-dsti==0) break;
+        memcpy(buf+((i-1)%buflen*itemsiz),buf+(i*itemsiz),itemsiz);
+    }
     return 1;
 }
 
