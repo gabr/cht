@@ -111,18 +111,13 @@ void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
     itemi=itemhash%buflen;
     for(scanned=0,i=itemi;;i=(i+1)%buflen) {
         dst=buf+(i*itemsiz);
-        if(*dst==0) { /* slot is empty */
-            memcpy(dst,item,itemsiz);
-            return;
-        }
-        /* slot is taken, calculate destination hash */
-        dsthash=RobinHT_Hash(dst);
-        if (itemhash==dsthash&&strcmp(item,dst)==0) {
-            /* the same key so just update the item value */
+        /* slot is empty or has the same key */
+        if(*dst==0||(*item==*dst&&!strcmp(item+1,dst+1))) {
             memcpy(dst,item,itemsiz);
             return;
         }
         /* different key - decide which item to move out */
+        dsthash=RobinHT_Hash(dst);
         dsti=dsthash%buflen;
         /* if our item is further from its supposed place then it
          * stays here and we move out the "richer" item */
