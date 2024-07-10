@@ -111,30 +111,29 @@ void RobinHT_Set(char* buf, size_t buflen, size_t itemsiz, ...) {
     itemi=itemhash%buflen;
     for(scanned=0,i=itemi;;i++) {
         dst=buf+(i*itemsiz);
-        if(*dst) { /* slot taken */
-            dsthash=RobinHT_Hash(dst);
-            if (itemhash==dsthash&&strcmp(item,dst)==0) {
-                /* the same key so just update the item value */
-                memcpy(dst,item,itemsiz);
-                return;
-            } else {
-                /* different key */
-                dsti=dsthash%buflen;
-                /* if our item is further from its supposed place then it
-                 * stays here and we move out the "richer" item */
-                if(i-dsti<i-itemi) {
-                    memcpy(swap,dst,itemsiz);
-                    memcpy(dst,item,itemsiz);
-                    dst=item;
-                    item=swap;
-                    swap=dst;
-                    itemi=dsti;
-                    itemhash=dsthash;
-                }
-            }
-        } else { /* slot empty */
+        if(*dst==0) { /* slot is empty */
             memcpy(dst,item,itemsiz);
             return;
+        }
+        /* slot is taken, calculate destination hash */
+        dsthash=RobinHT_Hash(dst);
+        if (itemhash==dsthash&&strcmp(item,dst)==0) {
+            /* the same key so just update the item value */
+            memcpy(dst,item,itemsiz);
+            return;
+        }
+        /* different key - decide which item to move out */
+        dsti=dsthash%buflen;
+        /* if our item is further from its supposed place then it
+         * stays here and we move out the "richer" item */
+        if(i-dsti<i-itemi) {
+            memcpy(swap,dst,itemsiz);
+            memcpy(dst,item,itemsiz);
+            dst=item;
+            item=swap;
+            swap=dst;
+            itemi=dsti;
+            itemhash=dsthash;
         }
         assert(++scanned<buflen && "no empty slots in the given buf");
     }
